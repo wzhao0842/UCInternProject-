@@ -7,6 +7,17 @@ FILENAME = "Publications_05.22.2023 (1).xlsx"
 SHEETNAME = "Full papers"
 cols = ["Professor", "Title", "Journal", "Year"]
 
+def file_copy_path_generator(file_path=None): 
+    cnt=1
+    file_path_units = file_path.split('')
+    while(True):
+        new_file_name = "("+str(cnt)+")"+file
+        try: 
+            with open(new_file_name, "r"): 
+                pass
+        except: 
+            return new_file_name 
+
 #sheet is defaulted to 1 
 def process_excel(file): 
     max_row = 1; 
@@ -64,7 +75,8 @@ def clean_duplicates(file=None):
         for i in range(len(action_dup_row)):
             ws.delete_rows(action_dup_row[i], 1)
 
-    wb.save(FILENAME)
+    #
+    wb.save(file+"")
 
 def sort_list(file=None): 
     if file is None: 
@@ -114,16 +126,16 @@ def update_list(AUTHOR_NAME):
             print("Invalid Publication")
 
 
-def modify_list(file=None): 
-    if file is None: 
-        file = input("Enter File Path: ")
+def modify_list(file_path=None): 
+    if file_path is None: 
+        file_path = input("Enter File Path: ")
     try: 
-        with open(file, 'r') as file: 
+        with open(file_path, 'r') as file: 
             print("Read Successfully")
     except FileNotFoundError: 
         print("File Not Found")
         return 
-    ls = process_excel(file)
+    ls = process_excel(file_path)
     wb=ls[0], ws=ls[1], max_row=ls[2] 
     author_names = {}
     for i in range(1, max_row): 
@@ -133,9 +145,25 @@ def modify_list(file=None):
     if author_names[author_name_input] is True: 
         year_l_bound = int(input("Year(left bound): "))
         year_r_bound = int(input("Year(right bound): "))
+        search_result = []
         for i in range(1, max_row): 
-            if(ws['A'+chr(i)]==author_names&&ws['']): 
-
+            if ws['A'+chr(i)]==author_names:
+                if(ws['D'+chr(i)]>=year_l_bound and ws['D'+chr(i)]<=year_r_bound): 
+                    search_result.append(i)
+        if(len(search_result)==0): 
+            print("No Result")
+            return
+        print("INDEX    ROW")
+        for i in range(len(search_result)):
+            print(i+1,"       ",search_result[i])
+        opt = int(input("Enter INDEX to delete (0 to quit): "))
+        while(opt!=0 and len(search_result)!=0):
+            opt = int(input("Enter INDEX to delete (0 to quit): "))
+            try: 
+                ws.delete_rows(search_result[opt-1], 1)
+            except: 
+                print("Error")
+        wb.save(file_path)
     else: 
         print("Author not Found")
 
@@ -148,13 +176,16 @@ def generate_php():
 
 def ui(): 
     funct=[clean_duplicates,sort_list,update_list,modify_list,add_author,generate_php]
-    file=input("Enter File Path: ")
+    file_path=input("Enter File Path: ")
     try: 
-        with open(file, 'r') as file: 
+        with open(file_path, 'r') as file: 
             print("Read Successfully")
     except FileNotFoundError: 
         print("File Not Found")
         return    
+    
+    #) path may not be in current directory
+    file_copy_path = file_name_generator(file_path)
     while(True): 
         print("1)clean duplicates  2)sort entries  3)update author")
         print("4)modify entries  5)add author  6)generate php file")
@@ -162,7 +193,7 @@ def ui():
         while(opt<1 or opt>6): 
             print("Error")
             opt = int(input("Enter Operation: "))
-        funct[opt-1](file)
+        funct[opt-1](file_copy_path)
 
 if __name__=="__main__":
     ui()
