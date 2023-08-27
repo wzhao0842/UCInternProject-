@@ -9,12 +9,11 @@ class Proxy():
         with open("proxy_list.txt", "r") as f: 
             proxies = f.read().split("\n")
             for p in proxies: 
-                q.put(p) 
+                self.q.put(p) 
     
     def check_proxies(self): 
-        global q 
-        while not q.empty(): 
-            proxy = q.get()
+        while not self.q.empty(): 
+            proxy = self.q.get()
             try: 
                 res = requests.get(test_link, proxies={"http":proxy, "https":proxy})
             except: 
@@ -22,9 +21,14 @@ class Proxy():
             if(res.status_code==200): 
                 self.valid_proxy = proxy
                 return
+        print("check proxy" ,self.q )
 
     def get_proxy(self): 
         for _ in range(10): 
             threading.Thread(target=self.check_proxies).start()
+        print("get proxy", self.q)
         return self.valid_proxy
     
+if __name__=="__main__": 
+    p = Proxy() 
+    print(p.get_proxy())

@@ -9,6 +9,9 @@ FILENAME = "Publications_05.22.2023 (1).xlsx"
 SHEETNAME = "Full papers"
 cols = ["Professor", "Title", "Journal", "Year"]
 
+def get_link(code): 
+    return "http://scholar.google.com/scholar?hl=en&q=info:"+code+":scholar.google.com/&output=cite&scirp=0&hl=en"
+
 def file_copy_path_generator(file_path=None): 
     cnt=1
     file_path_units = file_path.split('')
@@ -76,34 +79,38 @@ def clean_duplicates(file=None):
     wb.save(file+"")
 
 #task 2
-def sort_list(file_path=None, sheet=0): 
+def sort_list(file_path=None, sheet="Full papers", opt1=None, opt2=None): 
     if file_path is None: 
-        file = input("Enter File Path: ")
-    try: 
-        df = pd.read_excel(file, sheet=0)
-        for i in range(len(cols)):
-            print("("+str(i+1)+")", cols[i], " ")  
+        file_path = input("Enter File Path: ") 
+`   df = pd.read_excel(file_path)
+    for i in range(len(cols)):
+        print("("+str(i+1)+")", cols[i], " ")  
+    if(opt1 is None):
         opt1 = int(input("Sort By: "))
-        while(opt1<1 or opt1>4): 
-            print("ERROR")
-            opt1 = input("Sort By: ")
+    while(opt1<1 or opt1>4): 
+        print("ERROR")
+        opt1 = input("Sort By: ")
+    if(opt2 is None): 
         opt2 = input("ascending(a) / descending(d): ")
-        while(opt2!='a' and opt2!='d'): 
-            print("ERROR")
-            opt2 = input("ascending(a) / descending(d): ")
-        opt1 -= 1
-        opt2 = True if(opt2=='a') else False
-        print(opt2, cols[opt1])
-        df.sort_values(by=[cols[opt1]], ascending=opt2, inplace=True)
-        df.to_excel(file, sheet_name=0, index=False)
-    except:    
-        print("Error") 
+    while(opt2!='a' and opt2!='d'): 
+        print("ERROR")
+        opt2 = input("ascending(a) / descending(d): ")
+    opt1 -= 1
+    opt2 = True if(opt2=='a') else False
+    print(opt2, cols[opt1])
 
+    df.sort_values(by=[cols[opt1]], ascending=opt2, inplace=True)
+    df.to_excel(file_path, sheet_name=sheet, index=False)
+    print("SUCCESSED")`
+
+
+    
 #base method for task 3/4/5
 #return a dateframe containign all of a author's publication in a time range
+#all pubs are unique in the df
 def get_author_pubs(author_name=None, year_l_bound=0, year_r_bound=9999):
     if author_name is None: 
-        author_name = input("Enter Author Name: ")
+        author_name = input("Enter Author Name: ")    
     pg = ProxyGenerator()
     success = pg.FreeProxies()
     scholarly.use_proxy(pg)
@@ -112,23 +119,23 @@ def get_author_pubs(author_name=None, year_l_bound=0, year_r_bound=9999):
     first_author_result = next(search_query)
     author = scholarly.fill(first_author_result)
     for pub in author['publications']:
+        scholarly.fill(pub)
         pub_title = pub['bib']['title']
-        search_query = scholarly.search_pubs(pub_title)
-        newpub = next(search_query)
-        scholarly.bibtex(newpub)
-        citation_link = newpub['url_scholarbib']
-        link = "https://scholar.google.com" + citation_link                      
+        string = pub['url_related_articles'].split(':')
+        code = ""
+        for i in range(len(string)): 
+            if(string[i]=='scholar.google.com/'): 
+                code = string[i-1] 
+        link = get_link(code)                    
         pub_journal = pub['bib']['citation']
         pub_date = pub['bib']['pub_year']
         if(pub_date>=year_l_bound and pub_date<=year_r_bound):
             pub_citation = pub['num_citations']
             php_text = "<li>"+pub_title+"</li>"
             php_text_2 = "<li>"+pub_title+" in "+ pub_journal+ "</li>"
-            p = Proxy.Proxy()
-            proxy = p.get_proxy()
-            html = requests.get(link, proxies={"http":proxy, "https":proxy}).text
+            html = requests.get(link).text
             soup = BeautifulSoup(html, "lxml")
-            apa_cit = soup.find('th', string="APA").find_parent().find('div').text
+            apa_cit = "<li>"+soup.find('th', string="APA").find_parent().find('div').text+"</li>"
             new_data = {'Professor': author_name, 
                         'Title': pub_title, 'Journal': pub_journal, 
                         'Year': pub_date, 'Citations': pub_citation, 
@@ -137,7 +144,7 @@ def get_author_pubs(author_name=None, year_l_bound=0, year_r_bound=9999):
     return df
 
 #return a list with all the indexes of a author's publication in the excel file
-def search_author_pubs(file_path=None, sheet=0, author_name=None, year_l_bound=0, year_r_bound=9999): 
+def search_author_pubs(file_path=None, sheet="Full papers", author_name=None, year_l_bound=0, year_r_bound=9999): 
     if file_path is None: 
         file_path = input("Enter File Path")
     if author_name is None: 
@@ -150,15 +157,24 @@ def search_author_pubs(file_path=None, sheet=0, author_name=None, year_l_bound=0
             ret_list.append(i)
     return ret_list
     
-#task 3 
-def update_list(file_path=None, sheet=0, author_name=None): 
-    pass 
+#task 3
+# update all authors 
+def update_list(file_path=None, sheet="Full papers"): 
+    if(file_path is None): 
+        file_path = input("Enter File Path: ")
+    df = pd.read_excel(file_path)
+    serie = list(df['Author'])
+    serie = set(serie)
+    for i in range(len(serie)): 
+        new_df = get_author_pubs(serie[i])
+        df = pd.concat([df, new_df], ignore_index=True)
+    df.to_excel(file_path, sheet_name=sheet)
 
 #task 4
-def modify_list(file_path=None, sheet=0, year_l_bound=0, year_r_bound=9999): 
+def modify_list(file_path=None, sheet="Full papers", year_l_bound=0, year_r_bound=9999): 
     if file_path is None: 
         file_path = input("Enter File Path: ")
-    df = pd.read_excel(file_path, sheet)
+    df = pd.read_excel(file_path)
     author_names = {}
     serie = df['Author']
     max_row = df.axes[0].stop
@@ -188,16 +204,48 @@ def modify_list(file_path=None, sheet=0, year_l_bound=0, year_r_bound=9999):
                 df.drop(labels=[search_result[opt-1]], axis=0, inplace=False)
             except: 
                 print("Error")
-        df.to_excel(file_path, sheet, index=False)
+        df.to_excel(file_path, sheet_name=sheet, index=False)
     else: 
         print("Author not Found")
 
-def add_author(): 
-    pass
+#task 5
+def add_author(file_path=None, sheet="Full papers", author_name=None): 
+    if(file_path is None): 
+        file_path = input("Enter File Path")
+    if(author_name is None): 
+        author_name = input("Enter Author Name") 
+    df = pd.read_excel(file_path)
+    new_df = get_author_pubs(author_name)
+    print(new_df)
+    opt = input("Add to excel?(yes/no): ")
+    if(opt=='yes'): 
+        df = pd.concat([df, new_df], ignore_index=True)
+    df.to_excel(file_path, sheet_name=sheet)
 
-def generate_php(): 
-    pass 
-
+#task 6 
+def generate_php(file_path=None): 
+    if file_path is None: 
+        file_path = input("file_path: ")
+    sort_list(file_path, 0, 4, 'd')
+    df = pd.read_excel(file_path)
+    years_serie = df['Year']
+    cite_serie = df['Cite']
+    cur_year = years_serie[0]
+    with open("published-work.php", 'w') as f:
+        f.write("")
+    with open("published-work.php", 'a') as f: 
+        f.write("<div id=\"contentContainer\"> \n<div id=\"content\"> \n<h1>Published Work</h1> \n<!--p>Individual lists of publications by CPCC faculty.</p-->")
+        f.write("\n<h2>"+str(years_serie[0])+"</h2>")
+        f.write("\n<ul>")
+        for i in range(len(df.index)): 
+            if(years_serie[i] != cur_year): 
+                f.write("\n</ul>")
+                f.write("\n<h2>"+str(years_serie[i])+"</h2>")
+                f.write("<ul>")
+                cur_year = years_serie[i]
+            f.write("\n"+cite_serie[i])
+        f.write("\n</ul>")
+            
 def ui(): 
     funct=[clean_duplicates,sort_list,modify_list,add_author,generate_php]
     file_path=input("Enter File Path: ")
@@ -220,5 +268,3 @@ def ui():
         funct[opt-1](file_copy_path)
 
 if __name__=="__main__":
-    df = get_author_pubs("Hamid Jafarkhani")
-    print(df)
