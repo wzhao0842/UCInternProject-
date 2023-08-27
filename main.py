@@ -267,4 +267,4 @@ def ui():
             opt = int(input("Enter Operation: "))
         funct[opt-1](file_copy_path)
 
-if __name__=="__main__":
+
